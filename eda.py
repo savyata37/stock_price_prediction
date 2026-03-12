@@ -1,11 +1,18 @@
 import numpy as np
-import plotly.express as px
-import plotly.graph_objects as go
-import plotly.io as pio
 import matplotlib.pyplot as plt 
 import seaborn as sns
-from plotly.subplots import make_subplots
 import math
+
+try:
+    import plotly.express as px
+    import plotly.graph_objects as go
+    import plotly.io as pio
+    from plotly.subplots import make_subplots
+except ImportError:
+    px = None
+    go = None
+    pio = None
+    make_subplots = None
 
 
 # ---------------------------------------------------------------------------
@@ -24,11 +31,20 @@ def _existing_columns(df, columns):
     return [column for column in columns if column in df.columns]
 
 
+def _require_plotly():
+    if px is None or go is None or pio is None or make_subplots is None:
+        raise ImportError(
+            "Plotly is required for EDA plotting functions. Install plotly to use interactive notebook charts."
+        )
+
+
 def _show_figure(fig):
+    _require_plotly()
     pio.show(fig, renderer='notebook_connected')
 
 def plot_boxplots(df):
     """Interactive boxplots with 3 plots per row."""
+    _require_plotly()
 
     numeric_columns = df.select_dtypes(include=['float64', 'int64']).columns
 
@@ -46,7 +62,9 @@ def plot_boxplots(df):
         col_pos = i % cols_per_row + 1
 
         fig.add_trace(
-            go.Box(x=df[column]),
+            go.Box(x=df[column],
+            name="",         
+            showlegend=False),
             row=row,
             col=col_pos
         )
@@ -63,6 +81,7 @@ def plot_boxplots(df):
 
 def plot_correlation_heatmap(df):
     """Interactive correlation heatmap for key numerical columns."""
+    _require_plotly()
     numerical_cols = _existing_columns(df, ['Close', 'High', 'Low', 'Open', 'Volume', 'fedrete'])
     if len(numerical_cols) < 2:
         return
@@ -84,6 +103,7 @@ def plot_correlation_heatmap(df):
 
 def plot_market_trends(df):
     """Interactive close-price trend plot with moving averages."""
+    _require_plotly()
     if 'Close' not in df.columns:
         return
 
@@ -123,6 +143,7 @@ def plot_market_trends(df):
 
 def plot_distributions(df):
     """Interactive histograms with 2 plots per row."""
+    _require_plotly()
 
     numerical_cols = [c for c in ['Close', 'High', 'Low', 'Open', 'Volume', 'fedrete']
                       if c in df.columns]
