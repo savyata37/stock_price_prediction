@@ -522,7 +522,7 @@ def tune_classifiers(X_train, y_train):
     }
     
     svm_gs = GridSearchCV(
-        estimator=SVC(random_state=42),
+        estimator=SVC(random_state=42, probability=True),
         param_grid=svm_param_grid,
         cv=tscv,
         scoring='f1',

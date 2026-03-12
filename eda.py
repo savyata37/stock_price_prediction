@@ -1,5 +1,8 @@
 import numpy as np
-import matplotlib.pyplot as plt
+import plotly.express as px
+import plotly.graph_objects as go
+import plotly.io as pio
+import matplotlib.pyplot as plt 
 import seaborn as sns
 
 
@@ -15,54 +18,138 @@ def data_summary(df):
     print("\nSummary Statistics:\n", df.describe())
 
 
+def _existing_columns(df, columns):
+    return [column for column in columns if column in df.columns]
+
+
+def _show_figure(fig):
+    pio.show(fig, renderer='notebook_connected')
+
+
 def plot_distributions(df):
-    """Histogram of key numerical columns."""
-    numerical_cols = [c for c in ['Close', 'High', 'Low', 'Open', 'Volume', 'fedrete']
-                      if c in df.columns]
-    df[numerical_cols].hist(bins=20, figsize=(10, 8))
-    plt.suptitle('Distributions of Numerical Columns')
-    plt.tight_layout()
-    plt.show()
+    """Interactive histograms for key numerical columns."""
+    numerical_cols = _existing_columns(df, ['Close', 'High', 'Low', 'Open', 'Volume', 'fedrete'])
+    if not numerical_cols:
+        return
+
+    plot_df = df[numerical_cols].reset_index(drop=True).melt(
+        var_name='Feature', value_name='Value'
+    )
+    fig = px.histogram(
+        plot_df,
+        x='Value',
+        color='Feature',
+        facet_col='Feature',
+        facet_col_wrap=2,
+        nbins=30,
+        opacity=0.8,
+        color_discrete_sequence=px.colors.qualitative.Bold,
+        title='Distributions of Numerical Columns'
+    )
+    fig.for_each_annotation(lambda annotation: annotation.update(text=annotation.text.split('=')[-1]))
+    fig.update_xaxes(matches=None, showticklabels=True)
+    fig.update_yaxes(showticklabels=True)
+    fig.update_layout(template='plotly_white', showlegend=False, height=850)
+    _show_figure(fig)
 
 
 def plot_correlation_heatmap(df):
-    """Correlation heatmap for key numerical columns."""
-    numerical_cols = [c for c in ['Close', 'High', 'Low', 'Open', 'Volume', 'fedrete']
-                      if c in df.columns]
-    corr_matrix = df[numerical_cols].corr()
-    plt.figure(figsize=(8, 6))
-    sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', fmt='.2f', linewidths=0.5)
-    plt.title('Correlation Heatmap')
-    plt.show()
+    """Interactive correlation heatmap for key numerical columns."""
+    numerical_cols = _existing_columns(df, ['Close', 'High', 'Low', 'Open', 'Volume', 'fedrete'])
+    if len(numerical_cols) < 2:
+        return
 
+    corr_matrix = df[numerical_cols].corr().round(2)
+    fig = px.imshow(
+        corr_matrix,
+        text_auto=True,
+        aspect='auto',
+        color_continuous_scale='RdBu_r',
+        zmin=-1,
+        zmax=1,
+        title='Correlation Heatmap'
+    )
+    fig.update_layout(template='plotly_white', height=600)
+    _show_figure(fig)
+
+def plot_market_trends1(df): 
+    """Plot close price with 50-day and 200-day moving averages.""" 
+    plt.figure(figsize=(14, 7)) 
+    plt.plot(df.index, df['Close'], 
+    label='Close Price', alpha=0.6) 
+    if '50-day MA' in df.columns: 
+        plt.plot(df.index, df['50-day MA'], label='50-day MA', linestyle='dashed') 
+        if '200-day MA' in df.columns: plt.plot(df.index, df['200-day MA'], label='200-day MA', linestyle='dashed') 
+        plt.legend() 
+        plt.title('Market Trends with Moving Averages') 
+        plt.show()
 
 def plot_market_trends(df):
-    """Plot close price with 50-day and 200-day moving averages."""
-    plt.figure(figsize=(14, 7))
-    plt.plot(df.index, df['Close'], label='Close Price', alpha=0.6)
+    """Interactive close-price trend plot with moving averages."""
+    if 'Close' not in df.columns:
+        return
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=df.index,
+        y=df['Close'],
+        mode='lines',
+        name='Close Price',
+        line=dict(color='#1f77b4', width=2)
+    ))
     if '50-day MA' in df.columns:
-        plt.plot(df.index, df['50-day MA'], label='50-day MA', linestyle='dashed')
+        fig.add_trace(go.Scatter(
+            x=df.index,
+            y=df['50-day MA'],
+            mode='lines',
+            name='50-day MA',
+            line=dict(color='#ff7f0e', width=2, dash='dash')
+        ))
     if '200-day MA' in df.columns:
-        plt.plot(df.index, df['200-day MA'], label='200-day MA', linestyle='dashed')
-    plt.legend()
-    plt.title('Market Trends with Moving Averages')
-    plt.show()
+        fig.add_trace(go.Scatter(
+            x=df.index,
+            y=df['200-day MA'],
+            mode='lines',
+            name='200-day MA',
+            line=dict(color='#2ca02c', width=2, dash='dot')
+        ))
+    fig.update_layout(
+        template='plotly_white',
+        title='Market Trends with Moving Averages',
+        xaxis_title='Date',
+        yaxis_title='Value',
+        hovermode='x unified',
+        height=500
+    )
+    _show_figure(fig)
 
 
 def plot_boxplots(df):
-    """Boxplots for all numeric columns to visualise outliers."""
-    numeric_columns = df.select_dtypes(include=['float64', 'int64']).columns
-    num_cols = len(numeric_columns)
-    num_rows = (num_cols // 5) + (num_cols % 5 > 0)
-    fig, axes = plt.subplots(num_rows, 5, figsize=(15, num_rows * 3))
-    axes = axes.flatten()
-    for i, column in enumerate(numeric_columns):
-        sns.boxplot(x=df[column], ax=axes[i])
-        axes[i].set_title(f'Boxplot of {column}')
-    for j in range(i + 1, len(axes)):
-        fig.delaxes(axes[j])
-    plt.tight_layout()
-    plt.show()
+    """Interactive boxplots for numeric columns to visualise outliers."""
+    numeric_columns = df.select_dtypes(include=['number']).columns.tolist()
+    if not numeric_columns:
+        return
+
+    plot_df = df[numeric_columns].reset_index(drop=True).melt(
+        var_name='Feature', value_name='Value'
+    )
+    fig = px.box(
+        plot_df,
+        x='Feature',
+        y='Value',
+        color='Feature',
+        color_discrete_sequence=px.colors.qualitative.Safe,
+        title='Boxplots of Numeric Columns'
+    )
+    fig.update_layout(
+        template='plotly_white',
+        showlegend=False,
+        xaxis_title='Feature',
+        yaxis_title='Value',
+        height=650
+    )
+    fig.update_xaxes(tickangle=45)
+    _show_figure(fig)
 
 
 # ---------------------------------------------------------------------------
