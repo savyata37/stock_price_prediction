@@ -4,6 +4,8 @@ import plotly.graph_objects as go
 import plotly.io as pio
 import matplotlib.pyplot as plt 
 import seaborn as sns
+from plotly.subplots import make_subplots
+import math
 
 
 # ---------------------------------------------------------------------------
@@ -25,33 +27,39 @@ def _existing_columns(df, columns):
 def _show_figure(fig):
     pio.show(fig, renderer='notebook_connected')
 
+def plot_boxplots(df):
+    """Interactive boxplots with 3 plots per row."""
 
-def plot_distributions(df):
-    """Interactive histograms for key numerical columns."""
-    numerical_cols = _existing_columns(df, ['Close', 'High', 'Low', 'Open', 'Volume', 'fedrete'])
-    if not numerical_cols:
-        return
+    numeric_columns = df.select_dtypes(include=['float64', 'int64']).columns
 
-    plot_df = df[numerical_cols].reset_index(drop=True).melt(
-        var_name='Feature', value_name='Value'
+    cols_per_row = 3
+    rows = math.ceil(len(numeric_columns) / cols_per_row)
+
+    fig = make_subplots(
+        rows=rows,
+        cols=cols_per_row,
+        subplot_titles=numeric_columns
     )
-    fig = px.histogram(
-        plot_df,
-        x='Value',
-        color='Feature',
-        facet_col='Feature',
-        facet_col_wrap=2,
-        nbins=30,
-        opacity=0.8,
-        color_discrete_sequence=px.colors.qualitative.Bold,
-        title='Distributions of Numerical Columns'
-    )
-    fig.for_each_annotation(lambda annotation: annotation.update(text=annotation.text.split('=')[-1]))
-    fig.update_xaxes(matches=None, showticklabels=True)
-    fig.update_yaxes(showticklabels=True)
-    fig.update_layout(template='plotly_white', showlegend=False, height=850)
-    _show_figure(fig)
 
+    for i, column in enumerate(numeric_columns):
+        row = i // cols_per_row + 1
+        col_pos = i % cols_per_row + 1
+
+        fig.add_trace(
+            go.Box(x=df[column]),
+            row=row,
+            col=col_pos
+        )
+
+    fig.update_layout(
+        height=350 * rows,
+        width=1000,
+        title_text="Boxplots of Numerical Features",
+        template="plotly_white",
+        showlegend=False
+    )
+
+    fig.show()
 
 def plot_correlation_heatmap(df):
     """Interactive correlation heatmap for key numerical columns."""
@@ -72,17 +80,7 @@ def plot_correlation_heatmap(df):
     fig.update_layout(template='plotly_white', height=600)
     _show_figure(fig)
 
-def plot_market_trends1(df): 
-    """Plot close price with 50-day and 200-day moving averages.""" 
-    plt.figure(figsize=(14, 7)) 
-    plt.plot(df.index, df['Close'], 
-    label='Close Price', alpha=0.6) 
-    if '50-day MA' in df.columns: 
-        plt.plot(df.index, df['50-day MA'], label='50-day MA', linestyle='dashed') 
-        if '200-day MA' in df.columns: plt.plot(df.index, df['200-day MA'], label='200-day MA', linestyle='dashed') 
-        plt.legend() 
-        plt.title('Market Trends with Moving Averages') 
-        plt.show()
+
 
 def plot_market_trends(df):
     """Interactive close-price trend plot with moving averages."""
@@ -123,34 +121,40 @@ def plot_market_trends(df):
     )
     _show_figure(fig)
 
+def plot_distributions(df):
+    """Interactive histograms with 2 plots per row."""
 
-def plot_boxplots(df):
-    """Interactive boxplots for numeric columns to visualise outliers."""
-    numeric_columns = df.select_dtypes(include=['number']).columns.tolist()
-    if not numeric_columns:
-        return
+    numerical_cols = [c for c in ['Close', 'High', 'Low', 'Open', 'Volume', 'fedrete']
+                      if c in df.columns]
 
-    plot_df = df[numeric_columns].reset_index(drop=True).melt(
-        var_name='Feature', value_name='Value'
+    cols_per_row = 2
+    rows = math.ceil(len(numerical_cols) / cols_per_row)
+
+    fig = make_subplots(
+        rows=rows,
+        cols=cols_per_row,
+        subplot_titles=numerical_cols
     )
-    fig = px.box(
-        plot_df,
-        x='Feature',
-        y='Value',
-        color='Feature',
-        color_discrete_sequence=px.colors.qualitative.Safe,
-        title='Boxplots of Numeric Columns'
-    )
+
+    for i, col in enumerate(numerical_cols):
+        row = i // cols_per_row + 1
+        col_pos = i % cols_per_row + 1
+
+        fig.add_trace(
+            go.Histogram(x=df[col], nbinsx=30, name=col),
+            row=row,
+            col=col_pos
+        )
+
     fig.update_layout(
-        template='plotly_white',
-        showlegend=False,
-        xaxis_title='Feature',
-        yaxis_title='Value',
-        height=650
+        height=350 * rows,
+        width=900,
+        title_text="Distributions of Numerical Columns",
+        template="plotly_white",
+        showlegend=False
     )
-    fig.update_xaxes(tickangle=45)
-    _show_figure(fig)
 
+    fig.show()
 
 # ---------------------------------------------------------------------------
 # Feature Engineering
